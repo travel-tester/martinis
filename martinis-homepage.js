@@ -118,14 +118,17 @@ function renderSales(all) {
   $('edit-sales').textContent=item?'Update':'Set goal';
   if(!item){$('sales-heading').textContent='Monthly sales';return;}
   const date=new Date(Number(item.month.slice(0,4)),Number(item.month.slice(5))-1,1);
-  $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales';
+  $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales · USD';
   const money=new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',currencyDisplay:'symbol',minimumFractionDigits:0,maximumFractionDigits:2});
-  $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal)+' USD';
+  $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal);
   const percentage=item.goal>0?item.actual/item.goal*100:0;
   $('sales-progress').value=Math.min(percentage,100);
-  $('sales-glass-liquid').setAttribute('y',String(108-86*Math.min(percentage,100)/100));
+  const blocks=$('sales-blocks');
+  if(!blocks.children.length)for(let i=0;i<20;i++){const block=element('span','sales-block');block.append(element('span'));blocks.append(block);}
+  [...blocks.children].forEach((block,i)=>block.firstElementChild.style.width=Math.max(0,Math.min(1,percentage/5-i))*100+'%');
   $('sales-progress').setAttribute('aria-valuetext',item.goal>0?percentage.toFixed(1)+'% of the monthly goal':'No monthly goal set');
-  $('sales-percent').textContent=item.goal===0?'No goal set':new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(percentage)+'% of goal';
+  $('sales-percent').textContent=item.goal===0?'No goal set':new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(percentage)+'%';
+  $('sales-percent').classList.toggle('sales-no-goal',item.goal===0);
 
 }
 function formatSalesAmount(value) {
