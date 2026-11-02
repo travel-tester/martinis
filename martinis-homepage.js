@@ -106,7 +106,7 @@ $('announcement-form').onsubmit=async e=> {
 
 function validSales(item) {
   return item.type==='sales' && /^\d{4}-(0[1-9]|1[0-2])$/.test(item.month) &&
-    Number.isFinite(item.goal) && item.goal>0 && item.goal<=1e12 &&
+    Number.isFinite(item.goal) && item.goal>=0 && item.goal<=1e12 &&
     Number.isFinite(item.actual) && item.actual>=0 && item.actual<=1e12 &&
     typeof item.currency==='string' && /^[A-Z]{3}$/.test(item.currency) && validCurrency(item.currency);
 }
@@ -121,25 +121,47 @@ function renderSales(all) {
   $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales';
   const money=new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',currencyDisplay:'code',minimumFractionDigits:0,maximumFractionDigits:2});
   $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal);
-  const percentage=item.actual/item.goal*100;
+  const percentage=item.goal>0?item.actual/item.goal*100:0;
   $('sales-progress').value=Math.min(percentage,100);
-  $('sales-progress').setAttribute('aria-valuetext',percentage.toFixed(1)+'% of the monthly goal');
-  $('sales-percent').textContent=new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(percentage)+'% of goal';
+  $('sales-progress').setAttribute('aria-valuetext',item.goal>0?percentage.toFixed(1)+'% of the monthly goal':'No monthly goal set');
+  $('sales-percent').textContent=item.goal===0?'No goal set':new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(percentage)+'% of goal';
   const difference=item.goal-item.actual;
-  $('sales-remaining').textContent=difference>0?money.format(difference)+' to go':difference<0?money.format(-difference)+' above goal':'Goal reached';
+  $('sales-remaining').textContent=item.goal===0?'':difference>0?money.format(difference)+' to go':difference<0?money.format(-difference)+' above goal':'Goal reached';
 }
+function formatSalesAmount(value) {
+  const clean=value.replace(/[^0-9.]/g,'');
+  if(!clean)return '';
+  const parts=clean.split('.');
+  const whole=(parts.shift()||'0').replace(/^0+(?=\d)/,'');
+  return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(parts.length?'.'+parts.join('').slice(0,2):'');
+}
+function parseSalesAmount(value) {
+  const clean=value.replace(/,/g,'');
+  return /^\d+(?:\.\d{0,2})?$/.test(clean)?Number(clean):NaN;
+}
+for(const id of ['sales-goal-input','sales-actual-input']) {
+  $(id).addEventListener('input',()=> {
+    const input=$(id),old=input.value,caret=input.selectionStart||0;
+    const logical=old.slice(0,caret).replace(/[^0-9.]/g,'').length;
+    input.value=formatSalesAmount(old);
+    let position=0,count=0;
+    while(position<input.value.length&&count<logical){if(/[0-9.]/.test(input.value[position]))count++;position++;}
+    input.setSelectionRange(position,position);
+  });
+}
+
 $('edit-sales').onclick=()=> {
   const item=latestSales(); $('sales-form').reset(); $('sales-error').textContent='';
   const now=new Date();
   $('sales-month').value=item?item.month:now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  if(item){$('sales-goal-input').value=item.goal;$('sales-actual-input').value=item.actual;}
+  if(item){$('sales-goal-input').value=formatSalesAmount(String(item.goal));$('sales-actual-input').value=formatSalesAmount(String(item.actual));}
   $('sales-dialog').showModal(); (item?$('sales-actual-input'):$('sales-goal-input')).focus();
 };
 $('sales-cancel').onclick=()=>$('sales-dialog').close();
 $('sales-form').onsubmit=async e=> {
   e.preventDefault(); $('sales-error').textContent='';
-  const data={type:'sales',month:$('sales-month').value,goal:Number($('sales-goal-input').value),actual:Number($('sales-actual-input').value),currency:'USD'};
-  if(!validSales(data)){$('sales-error').textContent='Enter a positive goal and sales of zero or more.';return;}
+  const data={type:'sales',month:$('sales-month').value,goal:parseSalesAmount($('sales-goal-input').value),actual:parseSalesAmount($('sales-actual-input').value),currency:'USD'};
+  if(!validSales(data)){$('sales-error').textContent='Enter a goal and sales of zero or more.';return;}
   try {await submitEntry(data);$('sales-dialog').close();}
   catch {$('sales-error').textContent='Could not confirm the save. Your figures are still here. Please check before retrying.';}
 };
