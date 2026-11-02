@@ -17,6 +17,7 @@ function activeEntries() {
 }
 function render() {
   const all=activeEntries();
+  renderSales(all);
   const links=all.filter(x=>x.type==='link' && typeof x.name==='string' && valid(x.url));
   const announcements=all.filter(x=>x.type==='announcement' && typeof x.text==='string').reverse();
   $('grid').replaceChildren();
@@ -59,7 +60,7 @@ async function refresh(initial=false) {
   catch { if(initial)$('status').textContent='Team updates could not be loaded. Please refresh to try again.'; }
   finally { loading=false; }
 }
-function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links').forEach(b=>b.disabled=busy); }
+function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links, #edit-sales').forEach(b=>b.disabled=busy); }
 async function submitEntry(data) {
   if(saving)throw new Error('Already saving');
   if(!HOME_POST_URL)throw new Error('Shared saving is not connected yet.');
@@ -88,7 +89,7 @@ $('add').onclick=()=> { $('form').reset(); $('link-error').textContent=''; $('di
 $('cancel').onclick=()=>$('dialog').close();
 $('add-announcement').onclick=()=> { $('announcement-form').reset(); $('announcement-error').textContent=''; $('announcement-dialog').showModal(); $('announcement-text').focus(); };
 $('announcement-cancel').onclick=()=>$('announcement-dialog').close();
-for(const id of ['dialog','announcement-dialog'])$(id).addEventListener('cancel',e=>{if(saving)e.preventDefault();});
+for(const id of ['dialog','announcement-dialog','sales-dialog'])$(id).addEventListener('cancel',e=>{if(saving)e.preventDefault();});
 $('url').oninput=()=>$('url').setCustomValidity('');
 $('form').onsubmit=async e=> {
   e.preventDefault(); $('link-error').textContent=''; const name=$('name').value.trim(),url=$('url').value.trim();
@@ -102,6 +103,47 @@ $('announcement-form').onsubmit=async e=> {
   try { await submitEntry({type:'announcement',title:$('announcement-title').value.trim(),text}); $('announcement-dialog').close(); }
   catch { $('announcement-error').textContent='Could not confirm the save. Your announcement is still here. Please check the homepage before retrying.'; }
 };
+
+function validSales(item) {
+  return item.type==='sales' && /^\d{4}-(0[1-9]|1[0-2])$/.test(item.month) &&
+    Number.isFinite(item.goal) && item.goal>0 && item.goal<=1e12 &&
+    Number.isFinite(item.actual) && item.actual>=0 && item.actual<=1e12 &&
+    typeof item.currency==='string' && /^[A-Z]{3}$/.test(item.currency) && validCurrency(item.currency);
+}
+function validCurrency(code) { try { new Intl.NumberFormat(undefined,{style:'currency',currency:code});return /^[A-Z]{3}$/.test(code); }catch{return false;} }
+function latestSales(all=activeEntries()) { return [...all].reverse().find(validSales); }
+function renderSales(all) {
+  const item=latestSales(all);
+  $('sales-details').hidden=!item; $('sales-empty').hidden=!!item;
+  $('edit-sales').textContent=item?'Update':'Set goal';
+  if(!item){$('sales-heading').textContent='Monthly sales';return;}
+  const date=new Date(Number(item.month.slice(0,4)),Number(item.month.slice(5))-1,1);
+  $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales';
+  const money=new Intl.NumberFormat(undefined,{style:'currency',currency:item.currency,currencyDisplay:'code',minimumFractionDigits:0,maximumFractionDigits:2});
+  $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal);
+  const percentage=item.actual/item.goal*100;
+  $('sales-progress').value=Math.min(percentage,100);
+  $('sales-progress').setAttribute('aria-valuetext',percentage.toFixed(1)+'% of the monthly goal');
+  $('sales-percent').textContent=new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(percentage)+'% of goal';
+  const difference=item.goal-item.actual;
+  $('sales-remaining').textContent=difference>0?money.format(difference)+' to go':difference<0?money.format(-difference)+' above goal':'Goal reached';
+}
+$('edit-sales').onclick=()=> {
+  const item=latestSales(); $('sales-form').reset(); $('sales-error').textContent='';
+  const now=new Date();
+  $('sales-month').value=item?item.month:now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  if(item){$('sales-goal-input').value=item.goal;$('sales-actual-input').value=item.actual;$('sales-currency').value=item.currency;}
+  $('sales-dialog').showModal(); (item?$('sales-actual-input'):$('sales-goal-input')).focus();
+};
+$('sales-cancel').onclick=()=>$('sales-dialog').close();
+$('sales-form').onsubmit=async e=> {
+  e.preventDefault(); $('sales-error').textContent='';
+  const data={type:'sales',month:$('sales-month').value,goal:Number($('sales-goal-input').value),actual:Number($('sales-actual-input').value),currency:$('sales-currency').value.trim().toUpperCase()};
+  if(!validSales(data)){$('sales-error').textContent='Enter a positive goal, sales of zero or more, and a three-letter currency code.';return;}
+  try {await submitEntry(data);$('sales-dialog').close();}
+  catch {$('sales-error').textContent='Could not confirm the save. Your figures are still here. Please check before retrying.';}
+};
+
 let oldLinks=[];
 try { const old=JSON.parse(localStorage.getItem('team-desk-links-v1')||'[]'); if(Array.isArray(old))oldLinks=old.filter(x=>x&&typeof x.name==='string'&&valid(x.url)); }catch{}
 $('import-links').hidden=!oldLinks.length;
