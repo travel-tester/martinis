@@ -107,6 +107,7 @@ $('announcement-form').onsubmit=async e=> {
 function validSales(item) {
   return item.type==='sales' && /^\d{4}-(0[1-9]|1[0-2])$/.test(item.month) &&
     Number.isFinite(item.goal) && item.goal>=0 && item.goal<=1e12 &&
+    (item.saleCount==null || (Number.isSafeInteger(item.saleCount) && item.saleCount>=0)) &&
     Number.isFinite(item.actual) && item.actual>=0 && item.actual<=1e12 &&
     typeof item.currency==='string' && /^[A-Z]{3}$/.test(item.currency) && validCurrency(item.currency);
 }
@@ -121,6 +122,7 @@ function renderSales(all) {
   $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales · USD';
   const money=new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',currencyDisplay:'symbol',minimumFractionDigits:0,maximumFractionDigits:2});
   $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal);
+  $('sales-count').textContent=item.saleCount==null?'—':new Intl.NumberFormat().format(item.saleCount);
   const percentage=item.goal>0?item.actual/item.goal*100:0;
   $('sales-progress').value=Math.min(percentage,100);
   const blocks=$('sales-blocks');
@@ -157,6 +159,7 @@ $('edit-sales').onclick=()=> {
   const item=latestSales(); $('sales-form').reset(); $('sales-error').textContent='';
   const now=new Date();
   $('sales-month').value=item?item.month:now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  $('sales-count-input').value=item?.saleCount==null?'':new Intl.NumberFormat('en-US').format(item.saleCount);
   if(item){$('sales-goal-input').value=formatSalesAmount(String(item.goal));$('sales-actual-input').value=formatSalesAmount(String(item.actual));}
   $('sales-dialog').showModal(); (item?$('sales-actual-input'):$('sales-goal-input')).focus();
 };
@@ -164,7 +167,9 @@ $('sales-cancel').onclick=()=>$('sales-dialog').close();
 $('sales-form').onsubmit=async e=> {
   e.preventDefault(); $('sales-error').textContent='';
   const data={type:'sales',month:$('sales-month').value,goal:parseSalesAmount($('sales-goal-input').value),actual:parseSalesAmount($('sales-actual-input').value),currency:'USD'};
-  if(!validSales(data)){$('sales-error').textContent='Enter a goal and sales of zero or more.';return;}
+  const count=$('sales-count-input').value.replace(/,/g,'').trim();
+  if(count!=='')data.saleCount=/^\d+$/.test(count)?Number(count):NaN;
+  if(!validSales(data)){$('sales-error').textContent='Enter a goal and sales of zero or more, and a whole number of sales.';return;}
   try {await submitEntry(data);$('sales-dialog').close();}
   catch {$('sales-error').textContent='Could not confirm the save. Your figures are still here. Please check before retrying.';}
 };
