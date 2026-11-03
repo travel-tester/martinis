@@ -20,13 +20,14 @@ function render() {
   renderSales(all);
   const links=all.filter(x=>x.type==='link' && typeof x.name==='string' && valid(x.url));
   const announcements=all.filter(x=>x.type==='announcement' && typeof x.text==='string').reverse();
-  $('grid').replaceChildren();
+  $('grid').replaceChildren(); $('document-list').replaceChildren();
+  let documentCount=0;
   for(const item of [...defaults,...links]) {
     const card=element('article','card');
     const a=element('a'); a.href=item.url; a.target='_blank'; a.rel='noopener noreferrer'; a.setAttribute('aria-label',item.name+' (opens in a new tab)');
     a.append(element('h3','',item.name)); card.append(a);
     if(item.id) card.append(removeButton(item));
-    $('grid').append(card);
+    if(item.section==='document'){ $('document-list').append(card); documentCount++; }else $('grid').append(card);
   }
   $('announcement-list').replaceChildren();
   for(const item of announcements) {
@@ -38,7 +39,8 @@ function render() {
     if(!Number.isNaN(date.getTime())) { const time=element('time','',new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(date)); time.dateTime=date.toISOString(); footer.append(time); }
     footer.append(removeButton(item)); article.append(footer); $('announcement-list').append(article);
   }
-  $('announcements').hidden=!announcements.length;
+  $('announcements-empty').hidden=!!announcements.length;
+  $('documents-empty').hidden=documentCount>0;
 }
 function removeButton(item) {
   const b=element('button','remove','Remove'); b.type='button'; b.setAttribute('aria-label','Remove '+(item.name||item.title||'announcement'));
@@ -60,7 +62,7 @@ async function refresh(initial=false) {
   catch { if(initial)$('status').textContent='Team updates could not be loaded. Please refresh to try again.'; }
   finally { loading=false; }
 }
-function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links, #edit-sales').forEach(b=>b.disabled=busy); }
+function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links, #edit-sales, #add-announcement').forEach(b=>b.disabled=busy); }
 async function submitEntry(data) {
   if(saving)throw new Error('Already saving');
   if(!HOME_POST_URL)throw new Error('Shared saving is not connected yet.');
@@ -85,7 +87,9 @@ async function submitEntry(data) {
   } catch(error) { $('status').textContent='Save could not be confirmed. Your text is still in the form; check the homepage before retrying.'; throw error; }
   finally { setBusy(false); }
 }
-$('add').onclick=()=> { $('form').reset(); $('link-error').textContent=''; $('dialog').showModal(); $('name').focus(); };
+function openLink(section='shortcut') { $('form').reset(); $('link-error').textContent=''; $('link-section').value=section; $('link-dialog-title').textContent=section==='document'?'Add a document or form':'Add a shortcut'; $('dialog').showModal(); $('name').focus(); }
+$('add').onclick=()=>openLink();
+$('add-document').onclick=()=>openLink('document');
 $('cancel').onclick=()=>$('dialog').close();
 $('add-announcement').onclick=()=> { $('announcement-form').reset(); $('announcement-error').textContent=''; $('announcement-dialog').showModal(); $('announcement-text').focus(); };
 $('announcement-cancel').onclick=()=>$('announcement-dialog').close();
@@ -95,7 +99,7 @@ $('form').onsubmit=async e=> {
   e.preventDefault(); $('link-error').textContent=''; const name=$('name').value.trim(),url=$('url').value.trim();
   if(!name){$('name').focus();return;}
   if(!valid(url)){$('url').setCustomValidity('Use an http or https web address.');$('url').reportValidity();return;}
-  try { await submitEntry({type:'link',name,url,description:$('description').value.trim()}); $('dialog').close(); }
+  try { await submitEntry({type:'link',name,url,section:$('link-section').value,description:$('description').value.trim()}); $('dialog').close(); }
   catch { $('link-error').textContent='Could not confirm the save. Your link is still here. Please check the homepage before retrying.'; }
 };
 $('announcement-form').onsubmit=async e=> {
@@ -183,6 +187,7 @@ $('import-links').onclick=async()=> {
   catch { $('status').textContent='Some links could not be shared. Please check before retrying.'; }
 };
 try { const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]'); if(Array.isArray(cached))entries=cached.filter(x=>x&&typeof x==='object'); }catch{}
+$('homepage-month').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(new Date());
 render(); refresh(true);
 setInterval(()=>{if(document.visibilityState==='visible')refresh();},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh();});
