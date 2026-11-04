@@ -19,7 +19,7 @@ function activeEntries() {
     if(item.type==='update'){
       const original=unique.get(item.target);
       if(original&&['link','announcement'].includes(original.type)&&!removed.has(item.target)&&item.changes&&typeof item.changes==='object'){
-        const fields=original.type==='link'?['name','url','description','section']:['title','text','url','linkLabel','expiresOn'];
+        const fields=original.type==='link'?['name','url','description','section']:['title','text','url','linkLabel','expiresOn','eventDate'];
         const changes={};for(const key of fields)if(typeof item.changes[key]==='string')changes[key]=item.changes[key];
         unique.set(item.target,{...original,...changes});
       }
@@ -67,6 +67,7 @@ function render() {
   $('announcements-empty').hidden=!!announcements.length;
   updateNewsToggle();
   $('documents-empty').hidden=documentCount>0;
+  teamCalendar.render(announcements);
 }
 function itemOptions(item) {
   const menu=element('details','item-options');
@@ -139,7 +140,7 @@ function openAnnouncement(item=null){
   editingAnnouncement=item?.id||null;$('announcement-form').reset();$('announcement-error').textContent='';
   $('announcement-dialog-title').textContent=item?'Edit announcement':'Add an announcement';
   document.querySelector('#announcement-form button[type="submit"]').textContent=item?'Save changes':'Add announcement';
-  if(item){$('announcement-title').value=item.title||'';$('announcement-text').value=item.text||'';$('announcement-url').value=item.url||'';$('announcement-link-label').value=item.linkLabel||'';$('announcement-expiry').value=item.expiresOn||'';}
+  if(item){$('announcement-title').value=item.title||'';$('announcement-text').value=item.text||'';$('announcement-url').value=item.url||'';$('announcement-link-label').value=item.linkLabel||'';$('announcement-expiry').value=item.expiresOn||'';$('announcement-date').value=item.eventDate||'';}
   $('announcement-dialog').showModal();$('announcement-text').focus();
 }
 $('add').onclick=()=>openLink();
@@ -160,7 +161,7 @@ $('announcement-form').onsubmit=async e=> {
   e.preventDefault(); $('announcement-error').textContent=''; const text=$('announcement-text').value.trim(); if(!text){$('announcement-text').focus();return;}
   const url=$('announcement-url').value.trim();
   if(url&&!valid(url)){$('announcement-error').textContent='Enter an http or https web address.';return;}
-  try { const data={type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim(),expiresOn:$('announcement-expiry').value};await submitEntry(editingAnnouncement?{type:'update',target:editingAnnouncement,changes:data}:data); $('announcement-dialog').close(); }
+  try { const data={type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim(),expiresOn:$('announcement-expiry').value,eventDate:$('announcement-date').value};await submitEntry(editingAnnouncement?{type:'update',target:editingAnnouncement,changes:data}:data); $('announcement-dialog').close(); }
   catch { $('announcement-error').textContent='Could not confirm the save. Your announcement is still here. Please check the homepage before retrying.'; }
 };
 
