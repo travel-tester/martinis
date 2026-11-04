@@ -197,7 +197,7 @@ function renderIncentive(all){
   const item=latestIncentive(currentMonth(),all),show=!!(item&&item.enabled&&typeof item.text==='string'&&item.text.trim());
   $('incentive').hidden=!show;
   $('set-incentive').textContent=show?'Manage monthly incentive':'Set monthly incentive';
-  if(show){$('incentive-title').textContent=item.title||'Monthly incentive';$('incentive-text').textContent=item.text;}
+  if(show){$('incentive-text').textContent=item.text;}
 }
 function loadIncentiveForm(){
   const item=latestIncentive($('incentive-month').value);
