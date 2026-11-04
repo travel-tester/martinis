@@ -29,3 +29,5 @@
 .news-actions{gap:8px}.news-toggle{display:inline-flex;align-items:center;justify-content:center;border:1px solid #735b6b;border-radius:4px;padding:6px 10px;font:12px/1.4 system-ui,sans-serif;color:var(--gold);background:transparent;min-width:103px}.news-toggle::before{content:"↕";margin-right:7px;font-size:14px;line-height:1}.news-toggle:hover{background:#4a3747;color:var(--ink)}
 
 .expiry-help{display:block;margin-top:7px;color:var(--muted);font:11px/1.5 system-ui,sans-serif}
+
+.item-options-panel .edit-item{display:block;border:0;background:none;padding:8px 12px;width:100%;text-align:left;white-space:nowrap;color:var(--ink);font:12px/1.5 system-ui,sans-serif;border-radius:3px}.item-options-panel .edit-item:hover{background:#493747}

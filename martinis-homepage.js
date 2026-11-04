@@ -8,12 +8,23 @@ const cacheKey = 'martinis-homepage-shared-v1';
 let entries = [], saving = false, loading = false;
 const pendingEntries = new Map();
 const newsOpenState = new Map();
+let editingLink=null,editingAnnouncement=null;
 function valid(url) { try { return ['https:', 'http:'].includes(new URL(url).protocol); } catch { return false; } }
 function element(tag, className, text) { const el=document.createElement(tag); if(className)el.className=className; if(text!==undefined)el.textContent=text; return el; }
 function activeEntries() {
   const removed = new Set(entries.filter(x=>x.type==='remove').map(x=>x.target));
   const unique = new Map();
-  for(const item of entries) if(item && typeof item.id==='string' && !removed.has(item.id)) unique.set(item.id,item);
+  for(const item of entries) {
+    if(!item||typeof item.id!=='string'||removed.has(item.id)||item.type==='remove')continue;
+    if(item.type==='update'){
+      const original=unique.get(item.target);
+      if(original&&['link','announcement'].includes(original.type)&&!removed.has(item.target)&&item.changes&&typeof item.changes==='object'){
+        const fields=original.type==='link'?['name','url','description','section']:['title','text','url','linkLabel','expiresOn'];
+        const changes={};for(const key of fields)if(typeof item.changes[key]==='string')changes[key]=item.changes[key];
+        unique.set(item.target,{...original,...changes});
+      }
+    }else unique.set(item.id,item);
+  }
   return [...unique.values()];
 }
 function newsExpired(item,now=new Date()) {
@@ -55,7 +66,7 @@ function render() {
 function itemOptions(item) {
   const menu=element('details','item-options');
   const summary=element('summary','','⋯');summary.setAttribute('aria-label','Options for '+(item.name||item.title||'update'));
-  const panel=element('div','item-options-panel');panel.append(removeButton(item));menu.append(summary,panel);return menu;
+  const panel=element('div','item-options-panel');const edit=element('button','edit-item','Edit');edit.type='button';edit.setAttribute('aria-label','Edit '+(item.name||item.title||'announcement'));edit.onclick=()=>{menu.open=false;if(item.type==='link')openLink(item.section||'shortcut',item);else openAnnouncement(item);};panel.append(edit,removeButton(item));menu.append(summary,panel);return menu;
 }
 function setNewsOpen(open) {
   document.querySelectorAll('#announcement-list > details').forEach(item=>{newsOpenState.set(item.getAttribute('data-news-id'),open);item.open=open;});
@@ -87,7 +98,7 @@ async function refresh(initial=false) {
   catch { if(initial)$('status').textContent='Team updates could not be loaded. Please refresh to try again.'; }
   finally { loading=false; }
 }
-function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links, #edit-sales, #add-announcement, #edit-incentive, #set-incentive').forEach(b=>b.disabled=busy); }
+function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, .edit-item, #import-links, #edit-sales, #add-announcement, #edit-incentive, #set-incentive').forEach(b=>b.disabled=busy); }
 async function submitEntry(data) {
   if(saving)throw new Error('Already saving');
   if(!HOME_POST_URL)throw new Error('Shared saving is not connected yet.');
@@ -112,11 +123,24 @@ async function submitEntry(data) {
   } catch(error) { $('status').textContent='Save could not be confirmed. Your text is still in the form; check the homepage before retrying.'; throw error; }
   finally { setBusy(false); }
 }
-function openLink(section='shortcut') { $('form').reset(); $('link-error').textContent=''; $('link-section').value=section; $('link-dialog-title').textContent=section==='document'?'Add a document or form':'Add a shortcut'; $('dialog').showModal(); $('name').focus(); }
+function openLink(section='shortcut',item=null) {
+  editingLink=item?.id||null;$('form').reset();$('url').setCustomValidity('');$('link-error').textContent='';$('link-section').value=section;
+  $('link-dialog-title').textContent=item?'Edit link':section==='document'?'Add a document or form':'Add a shortcut';
+  document.querySelector('#form button[type="submit"]').textContent=item?'Save changes':'Save link';
+  if(item){$('name').value=item.name||'';$('url').value=item.url||'';$('description').value=item.description||'';}
+  $('dialog').showModal();$('name').focus();
+}
+function openAnnouncement(item=null){
+  editingAnnouncement=item?.id||null;$('announcement-form').reset();$('announcement-error').textContent='';
+  $('announcement-dialog-title').textContent=item?'Edit announcement':'Add an announcement';
+  document.querySelector('#announcement-form button[type="submit"]').textContent=item?'Save changes':'Add announcement';
+  if(item){$('announcement-title').value=item.title||'';$('announcement-text').value=item.text||'';$('announcement-url').value=item.url||'';$('announcement-link-label').value=item.linkLabel||'';$('announcement-expiry').value=item.expiresOn||'';}
+  $('announcement-dialog').showModal();$('announcement-text').focus();
+}
 $('add').onclick=()=>openLink();
 $('add-document').onclick=()=>openLink('document');
 $('cancel').onclick=()=>$('dialog').close();
-$('add-announcement').onclick=()=> { $('announcement-form').reset(); $('announcement-error').textContent=''; $('announcement-dialog').showModal(); $('announcement-text').focus(); };
+$('add-announcement').onclick=()=>openAnnouncement();
 $('announcement-cancel').onclick=()=>$('announcement-dialog').close();
 for(const id of ['dialog','announcement-dialog','sales-dialog','incentive-dialog'])$(id).addEventListener('cancel',e=>{if(saving)e.preventDefault();});
 $('url').oninput=()=>$('url').setCustomValidity('');
@@ -124,14 +148,14 @@ $('form').onsubmit=async e=> {
   e.preventDefault(); $('link-error').textContent=''; const name=$('name').value.trim(),url=$('url').value.trim();
   if(!name){$('name').focus();return;}
   if(!valid(url)){$('url').setCustomValidity('Use an http or https web address.');$('url').reportValidity();return;}
-  try { await submitEntry({type:'link',name,url,section:$('link-section').value,description:$('description').value.trim()}); $('dialog').close(); }
+  try { const data={type:'link',name,url,section:$('link-section').value,description:$('description').value.trim()};await submitEntry(editingLink?{type:'update',target:editingLink,changes:data}:data); $('dialog').close(); }
   catch { $('link-error').textContent='Could not confirm the save. Your link is still here. Please check the homepage before retrying.'; }
 };
 $('announcement-form').onsubmit=async e=> {
   e.preventDefault(); $('announcement-error').textContent=''; const text=$('announcement-text').value.trim(); if(!text){$('announcement-text').focus();return;}
   const url=$('announcement-url').value.trim();
   if(url&&!valid(url)){$('announcement-error').textContent='Enter an http or https web address.';return;}
-  try { await submitEntry({type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim(),expiresOn:$('announcement-expiry').value}); $('announcement-dialog').close(); }
+  try { const data={type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim(),expiresOn:$('announcement-expiry').value};await submitEntry(editingAnnouncement?{type:'update',target:editingAnnouncement,changes:data}:data); $('announcement-dialog').close(); }
   catch { $('announcement-error').textContent='Could not confirm the save. Your announcement is still here. Please check the homepage before retrying.'; }
 };
 
