@@ -37,7 +37,7 @@ function calendarHolidays(year){
 }
 const teamCalendar=(()=>{
   const byId=id=>document.getElementById(id),now=new Date();
-  let month=new Date(now.getFullYear(),now.getMonth(),1,12),selected=calendarDateKey(now),announcements=[],initialized=false;
+  let month=new Date(now.getFullYear(),now.getMonth(),1,12),selected=calendarDateKey(now),announcements=[];
   const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
   function eventsForYear(year){
     return [...calendarHolidays(year),...announcements.filter(item=>calendarParseDate(item.eventDate)&&item.eventDate.startsWith(year+'-')).map(item=>({date:item.eventDate,title:item.title||'Team update',kind:'news',url:item.url,linkLabel:item.linkLabel}))].sort((a,b)=>a.date.localeCompare(b.date));
@@ -81,5 +81,5 @@ const teamCalendar=(()=>{
   byId('calendar-prev').onclick=()=>{if(month.getFullYear()<=2000&&month.getMonth()===0)return;month=new Date(month.getFullYear(),month.getMonth()-1,1,12);selectMonthDate();draw();};
   byId('calendar-next').onclick=()=>{if(month.getFullYear()>=2100&&month.getMonth()===11)return;month=new Date(month.getFullYear(),month.getMonth()+1,1,12);selectMonthDate();draw();};
   byId('calendar-today').onclick=()=>{const date=new Date();month=new Date(date.getFullYear(),date.getMonth(),1,12);selected=calendarDateKey(date);draw();};
-  return {render(items){announcements=items;if(!initialized){selectMonthDate();initialized=true;}draw();}};
+  return {render(items){announcements=items;draw();}};
 })();
