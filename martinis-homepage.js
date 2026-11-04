@@ -201,7 +201,11 @@ function renderIncentive(all){
   $('incentive').hidden=!show;
   $('set-incentive').textContent='+ Add incentive';
   $('set-incentive').hidden=show;
-  if(show){$('incentive-text').textContent=item.text;}
+  if(show){
+    const monthDate=new Date(Number(item.month.slice(0,4)),Number(item.month.slice(5))-1,1);
+    $('incentive-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long'}).format(monthDate)+' incentive';
+    $('incentive-text').textContent=item.text;
+  }
   const winner=show&&typeof item.previousWinner==='string'?item.previousWinner.trim():'';
   $('incentive-winner-row').hidden=!winner;$('incentive-winner').textContent=winner;
 }
