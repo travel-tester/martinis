@@ -47,17 +47,22 @@ function render() {
     if(item.section==='document'){ $('document-list').append(card); documentCount++; }else $('grid').append(card);
   }
   $('announcement-list').replaceChildren();
-  for(const item of announcements) {
+  for(const [index,item] of announcements.entries()) {
     const article=element('details','announcement');
-    article.setAttribute('data-news-id',item.id); article.open=newsOpenState.get(item.id)!==false;
+    article.setAttribute('data-news-id',item.id); article.open=newsOpenState.has(item.id)?newsOpenState.get(item.id):index===0;
     article.addEventListener('toggle',()=>{newsOpenState.set(item.id,article.open);updateNewsToggle();});
-    const summary=element('summary');summary.append(element('h3','',item.title||'Team update'));article.append(summary);
-    article.append(element('p','',item.text));
-    if(item.url&&valid(item.url)){const link=element('a','news-link',item.linkLabel||'Open link');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.setAttribute('aria-label',(item.linkLabel||'Open link')+' (opens in a new tab)');article.append(link);}
+    const summary=element('summary'),date=new Date(item.createdAt);
+    if(!Number.isNaN(date.getTime())) {
+      const stamp=element('time','news-stamp');stamp.dateTime=date.toISOString();
+      stamp.setAttribute('aria-label',new Intl.DateTimeFormat(undefined,{month:'long',day:'numeric',year:'numeric'}).format(date));
+      stamp.append(element('span','stamp-day',new Intl.DateTimeFormat(undefined,{day:'2-digit'}).format(date)),element('span','stamp-month',new Intl.DateTimeFormat(undefined,{month:'short'}).format(date)));
+      summary.append(stamp);
+    }else{const spacer=element('span','news-stamp');spacer.setAttribute('aria-hidden','true');summary.append(spacer);}
+    summary.append(element('h3','',item.title||'Team update'));article.append(summary);
+    const body=element('div','announcement-body');body.append(element('p','',item.text));
     const footer=element('div','announcement-footer');
-    const date=new Date(item.createdAt);
-    if(!Number.isNaN(date.getTime())) { const time=element('time','',new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(date)); time.dateTime=date.toISOString(); footer.append(time); }
-    footer.append(itemOptions(item)); article.append(footer); $('announcement-list').append(article);
+    if(item.url&&valid(item.url)){const link=element('a','news-link',item.linkLabel||'Open link');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.setAttribute('aria-label',(item.linkLabel||'Open link')+' (opens in a new tab)');footer.append(link);}
+    footer.append(itemOptions(item));body.append(footer);article.append(body);$('announcement-list').append(article);
   }
   $('announcements-empty').hidden=!!announcements.length;
   updateNewsToggle();
@@ -72,12 +77,12 @@ function setNewsOpen(open) {
   document.querySelectorAll('#announcement-list > details').forEach(item=>{newsOpenState.set(item.getAttribute('data-news-id'),open);item.open=open;});
 }
 function updateNewsToggle(){
-  const stories=[...document.querySelectorAll('#announcement-list > details')],anyOpen=stories.some(item=>item.open);
-  $('toggle-news').textContent=anyOpen?'Collapse all':'Open all';
-  $('toggle-news').setAttribute('aria-label',anyOpen?'Collapse all news':'Open all news');
+  const stories=[...document.querySelectorAll('#announcement-list > details')],allOpen=stories.length>0&&stories.every(item=>item.open);
+  $('toggle-news').textContent=allOpen?'Collapse all':'Open all';
+  $('toggle-news').setAttribute('aria-label',allOpen?'Collapse all news':'Open all news');
   $('toggle-news').hidden=!stories.length;
 }
-$('toggle-news').onclick=()=>{setNewsOpen(![...document.querySelectorAll('#announcement-list > details')].some(item=>item.open));updateNewsToggle();};
+$('toggle-news').onclick=()=>{setNewsOpen(![...document.querySelectorAll('#announcement-list > details')].every(item=>item.open));updateNewsToggle();};
 function removeButton(item) {
   const b=element('button','remove','Remove'); b.type='button'; b.setAttribute('aria-label','Remove '+(item.name||item.title||'announcement'));
   b.onclick=async()=> { if(!confirm('Remove this '+(item.type==='link'?'link':'announcement')+' for everyone?'))return; try { await submitEntry({type:'remove',target:item.id}); }catch { $('status').textContent='Could not remove it. Please try again.'; } };
@@ -177,7 +182,7 @@ function renderSales(all) {
   $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales';
   const money=new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',currencyDisplay:'symbol',minimumFractionDigits:0,maximumFractionDigits:2});
   $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal);
-  $('sales-count').textContent=item.saleCount==null?'—':new Intl.NumberFormat().format(item.saleCount);
+  $('sales-count').textContent=item.saleCount==null?'–':new Intl.NumberFormat().format(item.saleCount);
   const percentage=item.goal>0?item.actual/item.goal*100:0;
   $('sales-progress').value=Math.min(percentage,100);
   const blocks=$('sales-blocks');
@@ -186,6 +191,7 @@ function renderSales(all) {
   $('sales-progress').setAttribute('aria-valuetext',item.goal>0?percentage.toFixed(1)+'% of the monthly goal':'No monthly goal set');
   $('sales-percent').textContent=item.goal===0?'No goal set':new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(percentage)+'%';
   $('sales-percent').classList.toggle('sales-no-goal',item.goal===0);
+  $('sales-progress-context').hidden=item.goal===0;
 
 }
 function formatSalesAmount(value) {
