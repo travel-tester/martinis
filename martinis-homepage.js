@@ -34,7 +34,7 @@ function render() {
   for(const item of announcements) {
     const article=element('details','announcement');
     article.setAttribute('data-news-id',item.id); article.open=newsOpenState.get(item.id)!==false;
-    article.addEventListener('toggle',()=>newsOpenState.set(item.id,article.open));
+    article.addEventListener('toggle',()=>{newsOpenState.set(item.id,article.open);updateNewsToggle();});
     const summary=element('summary');summary.append(element('h3','',item.title||'Team update'));article.append(summary);
     article.append(element('p','',item.text));
     if(item.url&&valid(item.url)){const link=element('a','news-link',item.linkLabel||'Open link');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.setAttribute('aria-label',(item.linkLabel||'Open link')+' (opens in a new tab)');article.append(link);}
@@ -44,6 +44,7 @@ function render() {
     footer.append(itemOptions(item)); article.append(footer); $('announcement-list').append(article);
   }
   $('announcements-empty').hidden=!!announcements.length;
+  updateNewsToggle();
   $('documents-empty').hidden=documentCount>0;
 }
 function itemOptions(item) {
@@ -54,8 +55,13 @@ function itemOptions(item) {
 function setNewsOpen(open) {
   document.querySelectorAll('#announcement-list > details').forEach(item=>{newsOpenState.set(item.getAttribute('data-news-id'),open);item.open=open;});
 }
-$('open-news').onclick=()=>setNewsOpen(true);
-$('collapse-news').onclick=()=>setNewsOpen(false);
+function updateNewsToggle(){
+  const stories=[...document.querySelectorAll('#announcement-list > details')],anyOpen=stories.some(item=>item.open);
+  $('toggle-news').textContent=anyOpen?'Collapse all':'Open all';
+  $('toggle-news').setAttribute('aria-label',anyOpen?'Collapse all news':'Open all news');
+  $('toggle-news').hidden=!stories.length;
+}
+$('toggle-news').onclick=()=>{setNewsOpen(![...document.querySelectorAll('#announcement-list > details')].some(item=>item.open));updateNewsToggle();};
 function removeButton(item) {
   const b=element('button','remove','Remove'); b.type='button'; b.setAttribute('aria-label','Remove '+(item.name||item.title||'announcement'));
   b.onclick=async()=> { if(!confirm('Remove this '+(item.type==='link'?'link':'announcement')+' for everyone?'))return; try { await submitEntry({type:'remove',target:item.id}); }catch { $('status').textContent='Could not remove it. Please try again.'; } };
