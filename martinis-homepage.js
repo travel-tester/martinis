@@ -196,7 +196,8 @@ function latestIncentive(month,all=activeEntries()){return [...all].reverse().fi
 function renderIncentive(all){
   const item=latestIncentive(currentMonth(),all),show=!!(item&&item.enabled&&typeof item.text==='string'&&item.text.trim());
   $('incentive').hidden=!show;
-  $('set-incentive').textContent=show?'Manage incentive':'+ Add incentive';
+  $('set-incentive').textContent='+ Add incentive';
+  $('set-incentive').hidden=show;
   if(show){$('incentive-text').textContent=item.text;}
   const winner=show&&typeof item.previousWinner==='string'?item.previousWinner.trim():'';
   $('incentive-winner-row').hidden=!winner;$('incentive-winner').textContent=winner;
