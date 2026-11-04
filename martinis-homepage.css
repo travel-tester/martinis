@@ -31,3 +31,5 @@
 .expiry-help{display:block;margin-top:7px;color:var(--muted);font:11px/1.5 system-ui,sans-serif}
 
 .item-options-panel .edit-item{display:block;border:0;background:none;padding:8px 12px;width:100%;text-align:left;white-space:nowrap;color:var(--ink);font:12px/1.5 system-ui,sans-serif;border-radius:3px}.item-options-panel .edit-item:hover{background:#493747}
+
+.announcement p{font-weight:300;color:#d2c5cf}
