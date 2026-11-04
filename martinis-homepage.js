@@ -187,7 +187,6 @@ $('import-links').onclick=async()=> {
   catch { $('status').textContent='Some links could not be shared. Please check before retrying.'; }
 };
 try { const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]'); if(Array.isArray(cached))entries=cached.filter(x=>x&&typeof x==='object'); }catch{}
-$('homepage-month').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(new Date());
 render(); refresh(true);
 setInterval(()=>{if(document.visibilityState==='visible')refresh();},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh();});
