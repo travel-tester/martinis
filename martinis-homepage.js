@@ -7,6 +7,7 @@ const $ = id => document.getElementById(id);
 const cacheKey = 'martinis-homepage-shared-v1';
 let entries = [], saving = false, loading = false;
 const pendingEntries = new Map();
+const newsOpenState = new Map();
 function valid(url) { try { return ['https:', 'http:'].includes(new URL(url).protocol); } catch { return false; } }
 function element(tag, className, text) { const el=document.createElement(tag); if(className)el.className=className; if(text!==undefined)el.textContent=text; return el; }
 function activeEntries() {
@@ -26,23 +27,35 @@ function render() {
     const card=element('article','card');
     const a=element('a'); a.href=item.url; a.target='_blank'; a.rel='noopener noreferrer'; a.setAttribute('aria-label',item.name+' (opens in a new tab)');
     a.append(element('h3','',item.name)); card.append(a);
-    if(item.id) card.append(removeButton(item));
+    if(item.id) card.append(itemOptions(item));
     if(item.section==='document'){ $('document-list').append(card); documentCount++; }else $('grid').append(card);
   }
   $('announcement-list').replaceChildren();
   for(const item of announcements) {
-    const article=element('article','announcement');
-    if(item.title)article.append(element('h3','',item.title));
+    const article=element('details','announcement');
+    article.setAttribute('data-news-id',item.id); article.open=newsOpenState.get(item.id)!==false;
+    article.addEventListener('toggle',()=>newsOpenState.set(item.id,article.open));
+    const summary=element('summary');summary.append(element('h3','',item.title||'Team update'));article.append(summary);
     article.append(element('p','',item.text));
     if(item.url&&valid(item.url)){const link=element('a','news-link',item.linkLabel||'Open link');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.setAttribute('aria-label',(item.linkLabel||'Open link')+' (opens in a new tab)');article.append(link);}
     const footer=element('div','announcement-footer');
     const date=new Date(item.createdAt);
     if(!Number.isNaN(date.getTime())) { const time=element('time','',new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(date)); time.dateTime=date.toISOString(); footer.append(time); }
-    footer.append(removeButton(item)); article.append(footer); $('announcement-list').append(article);
+    footer.append(itemOptions(item)); article.append(footer); $('announcement-list').append(article);
   }
   $('announcements-empty').hidden=!!announcements.length;
   $('documents-empty').hidden=documentCount>0;
 }
+function itemOptions(item) {
+  const menu=element('details','item-options');
+  const summary=element('summary','','⋯');summary.setAttribute('aria-label','Options for '+(item.name||item.title||'update'));
+  const panel=element('div','item-options-panel');panel.append(removeButton(item));menu.append(summary,panel);return menu;
+}
+function setNewsOpen(open) {
+  document.querySelectorAll('#announcement-list > details').forEach(item=>{newsOpenState.set(item.getAttribute('data-news-id'),open);item.open=open;});
+}
+$('open-news').onclick=()=>setNewsOpen(true);
+$('collapse-news').onclick=()=>setNewsOpen(false);
 function removeButton(item) {
   const b=element('button','remove','Remove'); b.type='button'; b.setAttribute('aria-label','Remove '+(item.name||item.title||'announcement'));
   b.onclick=async()=> { if(!confirm('Remove this '+(item.type==='link'?'link':'announcement')+' for everyone?'))return; try { await submitEntry({type:'remove',target:item.id}); }catch { $('status').textContent='Could not remove it. Please try again.'; } };
