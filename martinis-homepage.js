@@ -17,7 +17,7 @@ function activeEntries() {
 }
 function render() {
   const all=activeEntries();
-  renderSales(all);
+  renderSales(all); renderIncentive(all);
   const links=all.filter(x=>x.type==='link' && typeof x.name==='string' && valid(x.url));
   const announcements=all.filter(x=>x.type==='announcement' && typeof x.text==='string').reverse();
   $('grid').replaceChildren(); $('document-list').replaceChildren();
@@ -62,7 +62,7 @@ async function refresh(initial=false) {
   catch { if(initial)$('status').textContent='Team updates could not be loaded. Please refresh to try again.'; }
   finally { loading=false; }
 }
-function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links, #edit-sales, #add-announcement').forEach(b=>b.disabled=busy); }
+function setBusy(busy) { saving=busy; document.querySelectorAll('dialog button, .homepage-actions button, .remove, #import-links, #edit-sales, #add-announcement, #edit-incentive, #set-incentive').forEach(b=>b.disabled=busy); }
 async function submitEntry(data) {
   if(saving)throw new Error('Already saving');
   if(!HOME_POST_URL)throw new Error('Shared saving is not connected yet.');
@@ -93,7 +93,7 @@ $('add-document').onclick=()=>openLink('document');
 $('cancel').onclick=()=>$('dialog').close();
 $('add-announcement').onclick=()=> { $('announcement-form').reset(); $('announcement-error').textContent=''; $('announcement-dialog').showModal(); $('announcement-text').focus(); };
 $('announcement-cancel').onclick=()=>$('announcement-dialog').close();
-for(const id of ['dialog','announcement-dialog','sales-dialog'])$(id).addEventListener('cancel',e=>{if(saving)e.preventDefault();});
+for(const id of ['dialog','announcement-dialog','sales-dialog','incentive-dialog'])$(id).addEventListener('cancel',e=>{if(saving)e.preventDefault();});
 $('url').oninput=()=>$('url').setCustomValidity('');
 $('form').onsubmit=async e=> {
   e.preventDefault(); $('link-error').textContent=''; const name=$('name').value.trim(),url=$('url').value.trim();
@@ -190,3 +190,30 @@ try { const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]'); if(Array.is
 render(); refresh(true);
 setInterval(()=>{if(document.visibilityState==='visible')refresh();},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh();});
+
+function currentMonth(){ const now=new Date();return now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); }
+function latestIncentive(month,all=activeEntries()){return [...all].reverse().find(x=>x.type==='incentive'&&x.month===month);}
+function renderIncentive(all){
+  const item=latestIncentive(currentMonth(),all),show=!!(item&&item.enabled&&typeof item.text==='string'&&item.text.trim());
+  $('incentive').hidden=!show;
+  $('set-incentive').textContent=show?'Manage monthly incentive':'Set monthly incentive';
+  if(show){$('incentive-title').textContent=item.title||'Monthly incentive';$('incentive-text').textContent=item.text;}
+}
+function loadIncentiveForm(){
+  const item=latestIncentive($('incentive-month').value);
+  $('incentive-enabled').checked=item?!!item.enabled:true;
+  $('incentive-title-input').value=item?.title||'';$('incentive-text-input').value=item?.text||'';
+  $('incentive-fields').hidden=!$('incentive-enabled').checked;
+}
+function openIncentive(){ $('incentive-error').textContent='';$('incentive-month').value=currentMonth();loadIncentiveForm();$('incentive-dialog').showModal(); }
+$('set-incentive').onclick=openIncentive;$('edit-incentive').onclick=openIncentive;
+$('incentive-cancel').onclick=()=>$('incentive-dialog').close();
+$('incentive-month').onchange=loadIncentiveForm;
+$('incentive-enabled').onchange=()=>$('incentive-fields').hidden=!$('incentive-enabled').checked;
+$('incentive-form').onsubmit=async e=>{
+  e.preventDefault();$('incentive-error').textContent='';
+  const enabled=$('incentive-enabled').checked,text=$('incentive-text-input').value.trim();
+  if(enabled&&!text){$('incentive-error').textContent='Enter an incentive or turn off the incentive for this month.';return;}
+  try{await submitEntry({type:'incentive',month:$('incentive-month').value,enabled,title:$('incentive-title-input').value.trim(),text:enabled?text:''});$('incentive-dialog').close();}
+  catch{$('incentive-error').textContent='Could not confirm the save. Please check the homepage before retrying.';}
+};
