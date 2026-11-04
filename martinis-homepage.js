@@ -16,11 +16,16 @@ function activeEntries() {
   for(const item of entries) if(item && typeof item.id==='string' && !removed.has(item.id)) unique.set(item.id,item);
   return [...unique.values()];
 }
+function newsExpired(item,now=new Date()) {
+  if(!item.expiresOn||!/^\d{4}-\d{2}-\d{2}$/.test(item.expiresOn))return false;
+  const today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  return item.expiresOn<today;
+}
 function render() {
   const all=activeEntries();
   renderSales(all); renderIncentive(all);
   const links=all.filter(x=>x.type==='link' && typeof x.name==='string' && valid(x.url));
-  const announcements=all.filter(x=>x.type==='announcement' && typeof x.text==='string').reverse();
+  const announcements=all.filter(x=>x.type==='announcement' && typeof x.text==='string' && !newsExpired(x)).reverse();
   $('grid').replaceChildren(); $('document-list').replaceChildren();
   let documentCount=0;
   for(const item of [...defaults,...links]) {
@@ -126,7 +131,7 @@ $('announcement-form').onsubmit=async e=> {
   e.preventDefault(); $('announcement-error').textContent=''; const text=$('announcement-text').value.trim(); if(!text){$('announcement-text').focus();return;}
   const url=$('announcement-url').value.trim();
   if(url&&!valid(url)){$('announcement-error').textContent='Enter an http or https web address.';return;}
-  try { await submitEntry({type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim()}); $('announcement-dialog').close(); }
+  try { await submitEntry({type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim(),expiresOn:$('announcement-expiry').value}); $('announcement-dialog').close(); }
   catch { $('announcement-error').textContent='Could not confirm the save. Your announcement is still here. Please check the homepage before retrying.'; }
 };
 
@@ -210,7 +215,7 @@ $('import-links').onclick=async()=> {
 };
 try { const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]'); if(Array.isArray(cached))entries=cached.filter(x=>x&&typeof x==='object'); }catch{}
 render(); refresh(true);
-setInterval(()=>{if(document.visibilityState==='visible')refresh();},60000);
+setInterval(()=>{if(document.visibilityState==='visible'){if(!saving)render();refresh();}},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh();});
 
 function currentMonth(){ const now=new Date();return now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); }
