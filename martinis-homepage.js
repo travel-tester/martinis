@@ -34,6 +34,7 @@ function render() {
     const article=element('article','announcement');
     if(item.title)article.append(element('h3','',item.title));
     article.append(element('p','',item.text));
+    if(item.url&&valid(item.url)){const link=element('a','news-link',item.linkLabel||'Open link');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.setAttribute('aria-label',(item.linkLabel||'Open link')+' (opens in a new tab)');article.append(link);}
     const footer=element('div','announcement-footer');
     const date=new Date(item.createdAt);
     if(!Number.isNaN(date.getTime())) { const time=element('time','',new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(date)); time.dateTime=date.toISOString(); footer.append(time); }
@@ -104,7 +105,9 @@ $('form').onsubmit=async e=> {
 };
 $('announcement-form').onsubmit=async e=> {
   e.preventDefault(); $('announcement-error').textContent=''; const text=$('announcement-text').value.trim(); if(!text){$('announcement-text').focus();return;}
-  try { await submitEntry({type:'announcement',title:$('announcement-title').value.trim(),text}); $('announcement-dialog').close(); }
+  const url=$('announcement-url').value.trim();
+  if(url&&!valid(url)){$('announcement-error').textContent='Enter an http or https web address.';return;}
+  try { await submitEntry({type:'announcement',title:$('announcement-title').value.trim(),text,url,linkLabel:$('announcement-link-label').value.trim()}); $('announcement-dialog').close(); }
   catch { $('announcement-error').textContent='Could not confirm the save. Your announcement is still here. Please check the homepage before retrying.'; }
 };
 
