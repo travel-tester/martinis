@@ -174,7 +174,7 @@ function renderSales(all) {
   $('edit-sales').textContent=item?'Update':'Set goal';
   if(!item){$('sales-heading').textContent='Monthly sales';return;}
   const date=new Date(Number(item.month.slice(0,4)),Number(item.month.slice(5))-1,1);
-  $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales · USD';
+  $('sales-heading').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(date)+' sales';
   const money=new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',currencyDisplay:'symbol',minimumFractionDigits:0,maximumFractionDigits:2});
   $('sales-actual').textContent=money.format(item.actual); $('sales-goal').textContent=money.format(item.goal);
   $('sales-count').textContent=item.saleCount==null?'—':new Intl.NumberFormat().format(item.saleCount);
